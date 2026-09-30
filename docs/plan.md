@@ -29,4 +29,5 @@
 ## 코드 상태
 - v0 `autotube`: `python -m pytest -q` (mock 모드) 통과. 워크플로는 `github-workflows/`에 있음 → `.github/workflows/`로 옮겨야 함.
 - D1 스키마 DDL은 SQLite에서 검증됨(lease 조건부 UPDATE 동작 확인).
-- 다음 착수: 구현 순서 1단계.
+- 1단계(기반) 완료 — `stage-1` 브랜치: `worker/migrations/0001_init.sql`, `agent/`(core·orchestrator·adapters·roles/mock·cli), `python -m agent local --mock` → awaiting_approval. 보고서 `docs/reports/stage-1.md`.
+- 다음 착수: 구현 순서 2단계(제작 역할).

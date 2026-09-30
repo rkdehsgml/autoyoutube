@@ -15,7 +15,7 @@ class MemoryNotifier:
     def preview(self, job: Job, video: Path, meta: PlatformMeta) -> str:
         self.previews.append((job.id, str(video), meta.youtube.title))
         if self.echo:
-            print(f"[미리보기] {job.id} · {meta.youtube.title} · {video}")
+            print(f"[미리보기] {job.id} · {meta.youtube.title}")
         return f"local-{len(self.previews)}"
 
     def send(self, text: str) -> None:

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "autotube"
+version = "0.1.0"
+description = "AutoTube — 쇼츠 자동 생성·배포 파이프라인과 운영 에이전트"
+requires-python = ">=3.10"
+dependencies = [
+  "PyYAML>=6.0",
+  "pydantic>=2.6",
+  "requests>=2.31",
+  "edge-tts>=7.0",
+  "google-api-python-client>=2.100",
+  "google-auth>=2.23",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+agent = "agent.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["agent*", "autotube*"]

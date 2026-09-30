@@ -16,3 +16,5 @@ worker/.wrangler/
 *.mp4
 *.mp3
 *.wav
+*.egg-info/
+build/
