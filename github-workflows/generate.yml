@@ -1,0 +1,88 @@
+# 영상 생성 → 아티팩트 저장 → 텔레그램 미리보기(승인 버튼)
+name: generate
+
+on:
+  schedule:
+    - cron: "0 0 * * *"          # 매일 09:00 KST (UTC 00:00)
+  workflow_dispatch:              # GitHub 앱에서 수동 실행
+    inputs:
+      topic:
+        description: "주제 (비우면 data/topics.csv 큐에서)"
+        required: false
+        default: ""
+      format:
+        description: "포맷 id (비우면 자동 로테이션)"
+        required: false
+        default: ""
+  repository_dispatch:            # 텔레그램 /new 주제 → Worker → 여기
+    types: [generate]
+
+permissions:
+  contents: write                 # 주제 큐 상태 커밋
+
+concurrency:
+  group: generate
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TOPIC: ${{ github.event.inputs.topic || github.event.client_payload.topic || '' }}
+      FORMAT: ${{ github.event.inputs.format || github.event.client_payload.format || '' }}
+      LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
+      LLM_MODEL: ${{ vars.LLM_MODEL }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      GOOGLE_TTS_API_KEY: ${{ secrets.GOOGLE_TTS_API_KEY }}
+      PEXELS_API_KEY: ${{ secrets.PEXELS_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install ffmpeg + Korean fonts
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg fonts-noto-cjk
+
+      - run: pip install -r requirements.txt
+
+      - name: Generate
+        id: gen
+        run: |
+          if [ -n "$TOPIC" ]; then ARGS=(--topic "$TOPIC"); else ARGS=(--from-queue); fi
+          if [ -n "$FORMAT" ]; then ARGS+=(--format "$FORMAT"); fi
+          python -m autotube generate "${ARGS[@]}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: job-${{ steps.gen.outputs.job_id }}
+          path: |
+            outputs/${{ steps.gen.outputs.job_id }}/final.mp4
+            outputs/${{ steps.gen.outputs.job_id }}/*.json
+          retention-days: 7
+
+      # 아티팩트 업로드가 끝난 뒤에 승인 버튼을 보내야 publish가 파일을 찾을 수 있다
+      - name: Telegram preview
+        run: python -m autotube notify --job "outputs/${{ steps.gen.outputs.job_id }}"
+
+      - name: Save queue state
+        if: env.TOPIC == ''
+        run: |
+          git config user.name "autotube-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/topics.csv
+          git diff --cached --quiet || (git commit -m "queue: ${{ steps.gen.outputs.job_id }}" && git push)
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          curl -s -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            -d chat_id="${TELEGRAM_CHAT_ID}" \
+            -d text="생성 실패: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"

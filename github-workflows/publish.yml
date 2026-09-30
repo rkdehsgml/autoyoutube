@@ -1,0 +1,62 @@
+# 텔레그램 [승인] → Worker → repository_dispatch(publish) → 업로드
+name: publish
+
+on:
+  repository_dispatch:
+    types: [publish]
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: "job id (예: 20261001-090012-ab12)"
+        required: true
+      run_id:
+        description: "해당 generate 실행의 run id"
+        required: true
+
+permissions:
+  contents: read
+  actions: read                   # 다른 실행의 아티팩트 다운로드
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      JOB_ID: ${{ github.event.client_payload.job_id || github.event.inputs.job_id }}
+      RUN_ID: ${{ github.event.client_payload.run_id || github.event.inputs.run_id }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+      S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
+      S3_BUCKET: ${{ secrets.S3_BUCKET }}
+      S3_ACCESS_KEY: ${{ secrets.S3_ACCESS_KEY }}
+      S3_SECRET_KEY: ${{ secrets.S3_SECRET_KEY }}
+      S3_PUBLIC_BASE_URL: ${{ secrets.S3_PUBLIC_BASE_URL }}
+    steps:
+      - name: Validate ids
+        run: |
+          [[ "$JOB_ID" =~ ^[0-9]{8}-[0-9]{6}-[a-z0-9]{4}$ ]] || { echo "bad job id"; exit 1; }
+          [[ "$RUN_ID" =~ ^[0-9]+$ ]] || { echo "bad run id"; exit 1; }
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: job-${{ env.JOB_ID }}
+          path: outputs/${{ env.JOB_ID }}
+          run-id: ${{ env.RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish
+        run: python -m autotube publish --job "outputs/$JOB_ID" --notify

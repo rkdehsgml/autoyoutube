@@ -1,0 +1,56 @@
+# AutoTube 채널 설정 — 이 파일만 바꾸면 니치·톤·공급자·배포가 바뀝니다.
+
+channel:
+  name: "생활해결소"            # 가칭
+  niche: "생활 문제 → 해결템"
+  language: ko
+  tone: "짧고 단정한 존댓말. 과장·공포 조장 금지. 확인되지 않은 수치나 효능 주장 금지."
+  target_seconds: 45            # 쇼츠 목표 길이(초)
+  audience: "20~30대 자취생·신혼부부"
+
+# 템플릿 반복(비진정성 정책)을 피하려고 포맷을 로테이션합니다.
+formats:
+  - id: problem_solution
+    name: 문제해결형
+    structure: "3초 훅(문제 상황) → 원인 1줄 → 해결템 2~3개 → 내 선택 기준 → 마무리 한 줄"
+  - id: price_tier_top3
+    name: 가격대별 TOP3
+    structure: "훅 → 만 원대 / 3만 원대 / 10만 원대 각 1개 → 가격대별 고르는 기준 → 마무리"
+  - id: myth_fact
+    name: 오해 vs 사실
+    structure: "흔한 오해 제시 → 왜 틀렸는지 1~2줄 → 올바른 방법 → 도움 되는 제품 1~2개"
+  - id: season_checklist
+    name: 계절 체크리스트
+    structure: "시즌 훅(장마·한파·이사철 등) → 준비물 3~5개 체크리스트 → 우선순위 기준"
+
+providers:
+  llm: mock                     # mock | anthropic | gemini | openai
+  llm_model: ""                 # 사용할 모델명 (각 콘솔에서 확인). 환경변수 LLM_MODEL이 우선
+  tts: edge                     # edge(무료) | google(Chirp 3 HD 등) | mock
+  tts_voice: "ko-KR-SunHiNeural"   # edge 예: ko-KR-SunHiNeural / ko-KR-InJoonNeural
+  tts_rate: "+10%"
+  google_voice: "ko-KR-Chirp3-HD-Aoede"
+  visuals: pexels               # pexels | placeholder
+  ai_video: none                # none | (veo, kling, hailuo 등 추후 구현)
+
+render:
+  width: 1080
+  height: 1920
+  fps: 30
+  font: auto                    # auto = 맥 Apple SD Gothic Neo / 리눅스 Noto Sans CJK KR
+  font_size: 78
+  subtitle_margin_v: 620        # 하단 UI를 피하려고 화면 중하단에 자막 배치
+  max_chars_per_line: 14
+  bgm: ""                       # 예: assets/bgm/calm.mp3 (사용 허가된 음원만)
+  bgm_volume: 0.12
+
+publish:
+  platforms: [youtube]          # youtube, instagram
+  youtube_privacy: private      # 전역 전에는 private 유지
+  youtube_category_id: "26"     # Howto & Style
+  made_for_kids: false
+
+disclosure:
+  enable_affiliate: false       # 전역 전 false 유지 (수익 활동 금지). 전역 후 true
+  coupang: "이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다."
+  instagram_tags: ["#광고", "#제휴링크"]

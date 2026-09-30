@@ -1,0 +1,12 @@
+name = "autotube-approval"
+main = "worker.js"
+compatibility_date = "2026-09-01"
+
+[vars]
+GH_REPO = "YOUR_GITHUB_ID/autoyoutube"   # 본인 레포로 변경
+
+# 비밀값은 아래 명령으로 등록 (파일에 쓰지 말 것)
+#   npx wrangler secret put TG_BOT_TOKEN
+#   npx wrangler secret put TG_WEBHOOK_SECRET     # 임의의 긴 문자열
+#   npx wrangler secret put TG_ALLOWED_CHAT_ID    # 내 텔레그램 chat id
+#   npx wrangler secret put GH_TOKEN              # fine-grained PAT: 이 레포 Contents Read/Write
