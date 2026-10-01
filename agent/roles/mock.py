@@ -7,7 +7,6 @@
 from __future__ import annotations
 
 import hashlib
-import re
 import tempfile
 from pathlib import Path
 
@@ -19,6 +18,7 @@ from agent.core.models import (
     ResearchResult, Scene, SceneAsset, Storyboard, Topic, TopicCandidate, YouTubeMeta,
 )
 from agent.core.ports import RetryableError, StepContext, StepHandler, StepOutput
+from agent.core.text import norm_hash
 
 DEFAULT_TOPICS = [
     ("장마철 원룸 곰팡이 냄새 잡는 법", "problem_solution"),
@@ -35,11 +35,6 @@ DEFAULT_TOPICS = [
 
 DEFAULT_COSTS = {"researcher": 0.01, "writer": 0.02, "producer": 0.05, "render_video": 0.0,
                  "critic": 0.01, "publisher": 0.005}
-
-
-def norm_hash(title: str) -> str:
-    norm = re.sub(r"[\s\W_]+", "", title.lower())
-    return hashlib.sha1(norm.encode("utf-8")).hexdigest()
 
 
 def _key(job_id: str, name: str) -> str:

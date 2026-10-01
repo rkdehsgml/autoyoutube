@@ -54,7 +54,7 @@ CREATE TABLE step_runs (
 
 CREATE TABLE artifacts (
   job_id       TEXT NOT NULL REFERENCES jobs(id),
-  kind         TEXT NOT NULL,             -- research | storyboard | audio | visual | subs | final | thumb | qa | meta
+  kind         TEXT NOT NULL,             -- research | storyboard | manifest | audio | visual | subs | final | thumb | qa | meta
   scene        INTEGER NOT NULL DEFAULT -1,
   r2_key       TEXT NOT NULL,
   provider     TEXT,

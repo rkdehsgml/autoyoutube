@@ -70,7 +70,8 @@ class StepRun(Row):
     error: str | None = None
 
 
-ArtifactKind = Literal["research", "storyboard", "audio", "visual", "subs", "final", "thumb", "qa", "meta"]
+ArtifactKind = Literal["research", "storyboard", "audio", "visual", "subs", "final", "thumb", "qa", "meta",
+                       "manifest"]
 
 
 class Artifact(Row):
@@ -173,6 +174,11 @@ class Scene(BaseModel):
     target_sec: float = Field(ge=2, le=12)
 
 
+class Product(BaseModel):
+    keyword: str  # 브랜드명이 아닌 쿠팡 검색 키워드
+    reason: str = ""
+
+
 class Storyboard(BaseModel):
     """writer 출력."""
 
@@ -181,13 +187,15 @@ class Storyboard(BaseModel):
     scenes: list[Scene] = Field(min_length=4, max_length=7)
     insight: str  # 채널 고유 판단 (비진정성 대응)
     hashtags: list[str] = Field(max_length=5)
+    description: str = Field(default="", max_length=300)  # 설명란 본문 2~3줄
+    products: list[Product] = Field(default_factory=list, max_length=3)
 
 
 class SceneAsset(BaseModel):
     scene: int = Field(ge=0)
     audio_key: str
-    visual_key: str
-    source: str  # 공급자 (mock, edge, pexels, nano_banana, veo ...)
+    visual_key: str | None = None  # None 이면 렌더가 단색 배경으로 채운다
+    source: str  # 비주얼 공급자 (mock, pexels, placeholder, nano_banana, veo ...)
     duration_sec: float = Field(gt=0)
     cost_usd: float = Field(default=0.0, ge=0)
 
@@ -239,6 +247,8 @@ class PlatformMeta(BaseModel):
     youtube: YouTubeMeta
     instagram: InstagramMeta
     naver: NaverMeta
+    affiliate: bool = False                 # 대가성 문구를 넣었는지
+    contains_synthetic_media: bool = False  # AI 생성 영상 클립을 썼는지 (YouTube 표기)
 
 
 # ---------------------------------------------------------------- 포트 보조 타입 (2단계 이후 구현)

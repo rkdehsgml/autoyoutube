@@ -112,16 +112,16 @@ class Orchestrator:
             if not isinstance(out, StepOutput):
                 raise TypeError(f"{step.handler} 이(가) StepOutput 을 돌려주지 않았습니다")
         except (RetryableError, ValidationError) as e:
-            self._end_step(run_id, job, step, "failed", error=_short(e))
+            self._end_failed(run_id, job, step, e)
             if job.attempt + 1 >= MAX_ATTEMPTS:
                 return self._fail(job, owner, f"{MAX_ATTEMPTS}회 재시도 실패: {_short(e)}")
             store.bump_attempt(job.id)
             return True  # 같은 단계를 다시
         except BudgetExceeded as e:
-            self._end_step(run_id, job, step, "failed", error=_short(e))
+            self._end_failed(run_id, job, step, e)
             return self._fail(job, owner, _short(e))
         except Exception as e:  # 예상 못 한 오류는 재시도하지 않는다
-            self._end_step(run_id, job, step, "failed", error=_short(e))
+            self._end_failed(run_id, job, step, e)
             return self._fail(job, owner, f"{type(e).__name__}: {_short(e)}")
 
         # 비용은 쓴 만큼 먼저 기록하고 상한을 확인한다
@@ -191,6 +191,13 @@ class Orchestrator:
             cost_usd=out.cost_usd if out else 0.0,
             tokens_in=usage.get("tokens_in"), tokens_out=usage.get("tokens_out"), error=error,
         ))
+
+    def _end_failed(self, run_id: int, job, step: Step, e: BaseException) -> None:
+        """실패한 단계도 이미 쓴 비용(예: 검증 실패 전까지의 LLM 호출)은 기록한다."""
+        spent = float(getattr(e, "cost_usd", 0.0) or 0.0)
+        if spent:
+            self.store.record_run(job.id, step.role or step.handler, spent, {})
+        self._end_step(run_id, job, step, "failed", out=StepOutput(cost_usd=spent), error=_short(e))
 
     def _fail(self, job, owner: str, error: str) -> bool:
         if self.store.transition(job.id, job.state, "failed", owner=owner, error=error[:500]):

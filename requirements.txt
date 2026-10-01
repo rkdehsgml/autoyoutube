@@ -1,5 +1,6 @@
 PyYAML>=6.0
 pydantic>=2.6            # agent/ 모델·역할 출력 검증
+claude-agent-sdk>=0.1.70 # agent/ 역할 실행 (Claude Code CLI 동봉)
 requests>=2.31
 edge-tts>=7.0
 google-api-python-client>=2.100

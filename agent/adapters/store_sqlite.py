@@ -206,6 +206,11 @@ class SqliteStore:
         row = self._exec("SELECT * FROM topics WHERE norm_hash = ?", (t.norm_hash,)).fetchone()
         return Topic(**dict(row))
 
+    def mark_topic(self, topic_id: str, status: str) -> None:
+        if status not in ("new", "used", "rejected"):
+            raise ValueError(f"알 수 없는 주제 상태: {status}")
+        self._exec("UPDATE topics SET status = ? WHERE id = ?", (status, topic_id))
+
     def add_decision(self, job_id: str | None, role: str, action: str, reason: str | None = None) -> None:
         self._exec(
             "INSERT INTO decisions (job_id, role, action, reason, created_at) VALUES (?, ?, ?, ?, ?)",

@@ -55,6 +55,7 @@ class Store(Protocol):  # D1HttpStore(4단계) | SqliteStore
     def artifacts(self, job_id: str, kind: str | None = None) -> list[Artifact]: ...
     def add_evals(self, job_id: str, rubric_version: str, scores: dict[str, float], judge: str) -> None: ...
     def add_topic(self, t: Topic) -> Topic: ...
+    def mark_topic(self, topic_id: str, status: str) -> None: ...
     def add_decision(self, job_id: str | None, role: str, action: str, reason: str | None = None) -> None: ...
     def add_event(self, kind: str, payload: str | None = None) -> None: ...
     # 승인·게시 (approvals 는 클라우드에서 Worker만 기록)
@@ -134,9 +135,17 @@ class StepHandler(Protocol):
     async def __call__(self, ctx: StepContext) -> StepOutput: ...
 
 
-class RetryableError(RuntimeError):
+class CostCarryingError(RuntimeError):
+    """실패했어도 이미 쓴 비용(cost_usd)을 오케스트레이터가 기록할 수 있게 실어 나른다."""
+
+    def __init__(self, *args: object, cost_usd: float = 0.0):
+        super().__init__(*args)
+        self.cost_usd = cost_usd
+
+
+class RetryableError(CostCarryingError):
     """일시 오류 — 같은 단계를 다시 시도한다 (최대 3회)."""
 
 
-class BudgetExceeded(RuntimeError):
+class BudgetExceeded(CostCarryingError):
     """역할·job·월 비용 상한 초과."""

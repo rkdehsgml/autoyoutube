@@ -10,6 +10,7 @@ requires-python = ">=3.10"
 dependencies = [
   "PyYAML>=6.0",
   "pydantic>=2.6",
+  "claude-agent-sdk>=0.1.70",
   "requests>=2.31",
   "edge-tts>=7.0",
   "google-api-python-client>=2.100",
