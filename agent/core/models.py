@@ -278,6 +278,7 @@ class VisualResult(BaseModel):
     kind: Literal["stock", "image", "video"]
     provider: str
     cost_usd: float = 0.0
+    source_url: str = ""
 
 
 class MediaRef(BaseModel):
