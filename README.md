@@ -14,28 +14,39 @@
 > **복무 중 운영 원칙**: `publish.youtube_privacy: private`, `disclosure.enable_affiliate: false` 를 전역 전까지 유지.
 > 수익화(YPP 신청·쿠팡 파트너스)는 전역 후에 켠다.
 
-## 0. 새 에이전트 `agent/` (구현 순서 1단계: 기반)
+## 0. 새 에이전트 `agent/` (구현 순서 2단계까지)
 
 v0 `autotube/` 는 새 구조로 옮길 때까지 그대로 둔다. 설계는 `docs/plan.md`, 지침은 `CLAUDE.md`.
 
 ```bash
 pip install -r requirements.txt        # 또는 pip install -e .  (→ agent 명령)
-python -m agent local --mock --topic "장마철 원룸 곰팡이"   # queued → awaiting_approval
+python -m agent local --topic "장마철 원룸 곰팡이"          # mock: 외부 호출 없이 진짜 mp4 (기본)
+python -m agent local --live --topic "장마철 원룸 곰팡이"   # 실제 API — .env 에 ANTHROPIC_API_KEY 필요
 python -m agent status [--job-id <ID>]
 python -m agent decide <ID> approve|reject|redo           # 로컬에서 Worker 대신 판단
-python -m pytest -q                                      # v0 + agent 테스트
+python -m pytest -q                                      # v0 + agent 테스트 (네트워크 없음)
 ```
+
+| 모드 | researcher·writer | producer | 렌더 | critic | 메타데이터 |
+| --- | --- | --- | --- | --- | --- |
+| 기본(mock) | 가짜 | 무음 음성·단색 배경 | ffmpeg | 가짜 | 코드 |
+| `--live` | Agent SDK | Agent SDK + 도구(TTS·Pexels) | ffmpeg | 임시 통과(3단계 전) | 코드 |
+
+`--live` 에 필요한 것: `ANTHROPIC_API_KEY`(필수), `PEXELS_API_KEY`(없으면 단색 배경), TTS는 `config/channel.yaml` 의
+`providers.tts`(기본 edge, 무료). 역할별 모델·턴·예산은 `config/roles.yaml`, job 상한 기본 $1.
 
 | 위치 | 내용 |
 | --- | --- |
 | `worker/migrations/0001_init.sql` | D1 스키마 단일 기준 (12 테이블). 로컬 SQLite도 같은 파일 |
-| `agent/core/` | `states.py` 16상태·전이표 · `models.py` Pydantic · `ports.py` Protocol · `settings.py` |
+| `agent/core/` | `states.py` 전이표 · `models.py` · `ports.py` · `role_runner.py`(Agent SDK 실행기) · `settings.py` |
 | `agent/orchestrator.py` | STEPS 표, lease 30분, 재시도 3회, QA redo 최대 2회, 비용 상한(역할·job·월) |
-| `agent/adapters/` | `store_sqlite` · `blob_local` · `notify_memory` (4단계에 D1·R2·텔레그램 추가) |
-| `agent/roles/mock.py` | 가짜 역할 (2단계에 Agent SDK 역할로 교체) |
-| `config/roles.yaml` | 역할별 모델·도구·턴·예산. 게시 도구는 allowed_tools 금지 |
+| `agent/roles/` | `researcher` · `writer` · `producer` · `editor`(렌더) · `packaging` · `mock` · `registry`(모드별 조합) |
+| `agent/prompts/` | 역할 시스템 프롬프트 |
+| `agent/tools/` | `topic_bank` · `tts_synthesize` · `stock_search` · `check_asset` (job 하나에 묶임, 멱등) |
+| `agent/adapters/` | `store_sqlite` · `blob_local` · `tts_edge/google/mock` · `visual_pexels/placeholder` · `notify_memory` |
+| `agent/media/` | 렌더·자막 (v0 에서 이전) |
 
-로컬 산출물은 `outputs/local/` (DB `agent.db`, 미디어 `media/jobs/{job_id}/...`). 실제 API 호출(`--live`)은 2단계.
+로컬 산출물은 `outputs/local/` (DB `agent.db`, 미디어 `media/jobs/{job_id}/...`).
 
 ## 1. 맥북에서 바로 돌려보기 (API 키 없이)
 

@@ -1,11 +1,12 @@
 """agent CLI.
 
-  python -m agent local --mock --topic "장마철 원룸 곰팡이"   # 새 job을 awaiting_approval 까지
+  python -m agent local --topic "장마철 원룸 곰팡이"          # mock: 외부 호출 없이 진짜 mp4 까지
+  python -m agent local --live --topic "장마철 원룸 곰팡이"   # 실제 API (Agent SDK·TTS·Pexels)
   python -m agent local --job-id <ID>                        # 기존 job 이어서 진행
   python -m agent status [--job-id <ID>]
   python -m agent decide <ID> approve|reject|redo [--reason ...]
 
-기본 실행은 항상 mock 이다. 실제 외부 API 호출은 --live 를 줄 때만 (2단계에서 구현).
+기본 실행은 항상 mock 이다. 실제 외부 API 호출은 --live 를 줄 때만.
 """
 from __future__ import annotations
 
@@ -18,8 +19,11 @@ from pathlib import Path
 from agent.adapters.blob_local import LocalBlobStore
 from agent.adapters.notify_memory import MemoryNotifier
 from agent.adapters.store_sqlite import SqliteStore
+from agent.core.channel import load_dotenv
+from agent.media.ffmpeg import require_ffmpeg
 from agent.orchestrator import Orchestrator, apply_decision
 from agent.roles.mock import MockRoles
+from agent.roles.registry import build_handlers, deps_for
 
 ROOT = Path(__file__).resolve().parent.parent
 LOCAL_DIR = ROOT / "outputs" / "local"
@@ -35,14 +39,38 @@ def _stores(args) -> tuple[SqliteStore, LocalBlobStore]:
     return SqliteStore(db), LocalBlobStore(args.media)
 
 
-def cmd_local(args) -> int:
+AUTH_ENV = ("ANTHROPIC_API_KEY", "CLAUDE_CODE_OAUTH_TOKEN")
+
+
+def _mode(args) -> str:
     if args.live:
-        print("--live(실제 API 호출)는 2단계에서 구현됩니다. 지금은 mock 만 실행할 수 있습니다.", file=sys.stderr)
-        return 2
+        return "live"
+    return "fast" if args.fake_media else "mock"
+
+
+def cmd_local(args) -> int:
+    mode = _mode(args)
+    if mode == "live":
+        load_dotenv(Path(args.env_file))
+        if not any(os.getenv(k) for k in AUTH_ENV):
+            print("--live 는 ANTHROPIC_API_KEY 가 필요합니다 (.env 또는 환경변수).", file=sys.stderr)
+            return 2
+    if mode != "fast":
+        try:
+            require_ffmpeg()
+        except RuntimeError as e:
+            print(str(e), file=sys.stderr)
+            return 2
     store, blobs = _stores(args)
     notifier = MemoryNotifier(echo=not args.quiet)
-    roles = MockRoles(qa_failures=args.qa_fail, redo_from=args.redo_from)
-    orch = Orchestrator(store, blobs, roles.handlers(), notifier=notifier)
+    warn = (lambda m: None) if args.quiet else (lambda m: print(f"[경고] {m}", file=sys.stderr))
+    mock = MockRoles(qa_failures=args.qa_fail, redo_from=args.redo_from)
+    try:
+        deps = None if mode == "fast" else deps_for(mode, warn=warn)
+    except RuntimeError as e:  # 공급자 키 누락 등
+        print(str(e), file=sys.stderr)
+        return 2
+    orch = Orchestrator(store, blobs, build_handlers(mode, deps, mock), notifier=notifier)
     if args.job_id:
         job = store.get_job(args.job_id)
     else:
@@ -99,8 +127,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     lp = sub.add_parser("local", parents=[common], help="로컬에서 job 하나를 awaiting_approval 까지 진행")
     mode = lp.add_mutually_exclusive_group()
-    mode.add_argument("--mock", action="store_true", default=True, help="가짜 역할로 실행 (기본)")
-    mode.add_argument("--live", action="store_true", help="실제 API 호출 (2단계)")
+    mode.add_argument("--mock", action="store_true", default=True,
+                      help="가짜 역할 + 무음 음성 + 단색 배경으로 진짜 mp4 (기본, 외부 호출 없음)")
+    mode.add_argument("--live", action="store_true", help="실제 API 호출 (Agent SDK·TTS·Pexels)")
+    mode.add_argument("--fake-media", action="store_true", help="렌더 없이 자리표시 바이트만 (테스트용, 가장 빠름)")
+    lp.add_argument("--env-file", default=str(ROOT / ".env"), help="--live 에서 읽을 .env 경로")
     lp.add_argument("--topic", default=None, help="요청 주제 (/new 와 같음)")
     lp.add_argument("--format", default=None, help="포맷 id (config/channel.yaml)")
     lp.add_argument("--job-id", default=None, help="기존 job 이어서 진행")
